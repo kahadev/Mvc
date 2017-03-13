@@ -115,6 +115,19 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         }
 
         [Fact]
+        public async Task HelloWorlWithHander_MissingHandlerNotFound()
+        {
+            // Arrange
+            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost/HelloWorldWithHandler");
+
+            // Act
+            var response = await Client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
         public async Task HelloWorldWithPageModelHandler_CanPostContent()
         {
             // Arrange
