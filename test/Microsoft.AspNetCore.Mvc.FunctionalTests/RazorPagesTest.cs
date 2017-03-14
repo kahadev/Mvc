@@ -20,6 +20,80 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         public HttpClient Client { get; }
 
         [Fact]
+        public async Task Page_NameAsyncWithoutReturnTask()
+        {
+            // Arrange
+            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/NamedAsyncWithoutTask");
+
+            // Act
+            var response = await Client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            throw new NotImplementedException();
+        }
+
+        [Fact]
+        public async Task Page_CustomHandlerName()
+        {
+            // Arrange
+            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomHandlerNames");
+
+            // Act
+            var response = await Client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.Equal("Method: OnGetCustomer", content);
+        }
+
+        [Fact]
+        public async Task Page_AsyncHandlers()
+        {
+            // Arrange
+            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost/CustomHandlerNames");
+
+            // Act
+            var response = await Client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.Equal("Method: OnPostAsync", content);
+        }
+
+        [Fact]
+        public async Task Page_CustomAsyncHandlers()
+        {
+            // Arrange
+            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomAsyncHandlerNames");
+
+            // Act
+            var response = await Client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.Equal(content, "Method: OnGetCustomerAsync");
+        }
+
+        [Fact]
+        public async Task Page_TypeImplementsIActionResult()
+        {
+            // Arrange
+            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost/TypeImplementsIActionResult");
+
+            // Act
+            var response = await Client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.Equal(content, "CustomActionResult");
+        }
+
+        [Fact]
         public async Task Page_SetsPath()
         {
             // Arrange

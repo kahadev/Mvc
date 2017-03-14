@@ -1,0 +1,18 @@
+@page
+
+@functions{
+    public string Message {get; set;}
+
+    public void OnGetCustomer()
+    {
+        Message = nameof(OnGetCustomer) 
+    }
+
+    public Task<IActionResult> OnPostAsync()
+    {
+        Message = nameof(OnPostAsync)
+        return View();
+    }
+}
+
+Method: @Message
