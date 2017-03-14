@@ -8,21 +8,17 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace RazorPagesWebSite
 {
-    public class CustomAsyncHandlerNamesModel : PageModel
+    public class CustomActionResultModel : PageModel
     {
-        public string MethodName {get; set;}
-
-        public Task OnGetCustomerAsync()
+        public CustomActionResult OnGetCustomActionResultAsync()
         {
-            MethodName = nameof(OnGetCustomerAsync);
-            return Task.Delay(1);
+            return new CustomActionResult();
         }
 
-        public async Task<IActionResult> OnPostCustomActionResult()
+        public async Task<CustomActionResult> OnPostCustomActionResult()
         {
-            MethodName = nameof(OnPostCustomActionResult);
             await Task.Delay(1);
-            return View();
+            return new CustomActionResult();
         }
     }
 

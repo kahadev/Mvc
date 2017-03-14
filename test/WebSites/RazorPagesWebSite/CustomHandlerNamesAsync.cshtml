@@ -1,0 +1,19 @@
+﻿@page
+
+@functions{
+    public string MethodName { get; set; }
+
+    public IActionResult OnGet()
+    {
+        MethodName = nameof(OnGet);
+        return View();
+    }
+
+    public async Task OnPostDeleteCustomerAsync()
+    {
+        MethodName = nameof(OnPostDeleteCustomerAsync);
+        await Task.Delay(1);
+    }
+}
+
+MethodName: @MethodName
