@@ -10,14 +10,40 @@ namespace RazorPagesWebSite
 {
     public class CustomActionResultModel : PageModel
     {
-        public CustomActionResult OnGetCustomActionResultAsync()
+        public string MethodName { get; set; }
+
+        public IActionResult OnGet()
         {
-            return new CustomActionResult();
+            return View();
+        }
+
+        public async Task<IActionResult> OnPostAsync()
+        {
+            await Task.Delay(1);
+            MethodName = nameof(OnPostAsync);
+            return View();
+        }
+
+        public async Task OnGetCustomer()
+        {
+            await Task.Delay(1);
+            MethodName = nameof(OnGetCustomer);
+        }
+
+        public async Task OnGetViewCustomerAsync()
+        {
+            await Task.Delay(1);
+            MethodName = nameof(OnGetViewCustomerAsync);
         }
 
         public async Task<CustomActionResult> OnPostCustomActionResult()
         {
             await Task.Delay(1);
+            return new CustomActionResult();
+        }
+
+        public CustomActionResult OnGetCustomActionResultAsync()
+        {
             return new CustomActionResult();
         }
     }

@@ -1,7 +1,6 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -20,24 +19,10 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         public HttpClient Client { get; }
 
         [Fact]
-        public async Task Page_NameAsyncWithoutReturnTask()
+        public async Task Page_Handler_FormAction()
         {
             // Arrange
-            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/NamedAsyncWithoutTask");
-
-            // Act
-            var response = await Client.SendAsync(request);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-            throw new NotImplementedException();
-        }
-
-        [Fact]
-        public async Task Page_CustomHandlerName()
-        {
-            // Arrange
-            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomHandlerNames");
+            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomActionResultPage/Customer");
 
             // Act
             var response = await Client.SendAsync(request);
@@ -45,14 +30,74 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var content = await response.Content.ReadAsStringAsync();
-            Assert.Equal("Method: OnGetCustomer", content);
+            Assert.StartsWith("Method: OnGetCustomer", content.Trim());
         }
 
         [Fact]
-        public async Task Page_AsyncHandlers()
+        public async Task Page_Handler_Async()
         {
             // Arrange
-            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost/CustomHandlerNames");
+            var getRequest = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomActionResultPage");
+            var getResponse = await Client.SendAsync(getRequest);
+            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
+            var formToken = AntiforgeryTestHelper.RetrieveAntiforgeryToken(getResponseBody, "/CustomActionResultPage");
+            var cookie = AntiforgeryTestHelper.RetrieveAntiforgeryCookie(getResponse);
+
+            var postRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost/CustomActionResultPage");
+            postRequest.Headers.Add("Cookie", cookie.Key + "=" + cookie.Value);
+            postRequest.Headers.Add("RequestVerificationToken", formToken);
+
+            // Act
+            var response = await Client.SendAsync(postRequest);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.StartsWith("Method: OnPostAsync", content.Trim());
+        }
+
+        [Fact]
+        public async Task Page_Handler_AsyncFormAction()
+        {
+            // Arrange
+            var postRequest = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomActionResultPage/ViewCustomer");
+
+            // Act
+            var response = await Client.SendAsync(postRequest);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.StartsWith("Method: OnGetViewCustomerAsync", content.Trim());
+        }
+
+        [Fact]
+        public async Task Page_Handler_ReturnTypeImplementsIActionResult()
+        {
+            // Arrange
+            var getRequest = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomActionResultPage?message=message");
+            var getResponse = await Client.SendAsync(getRequest);
+            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
+            var formToken = AntiforgeryTestHelper.RetrieveAntiforgeryToken(getResponseBody, "/CustomActionResultPage");
+            var cookie = AntiforgeryTestHelper.RetrieveAntiforgeryCookie(getResponse);
+
+            var postRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost/CustomActionResultPage/CustomActionResult");
+            postRequest.Headers.Add("Cookie", cookie.Key + "=" + cookie.Value);
+            postRequest.Headers.Add("RequestVerificationToken", formToken);
+            // Act
+            var response = await Client.SendAsync(postRequest);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.Equal("CustomActionResult", content);
+        }
+
+        [Fact]
+        public async Task Page_Handler_AsyncReturnTypeImplementsIActionResult()
+        {
+            // Arrange
+            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomActionResultPage/CustomActionResult");
 
             // Act
             var response = await Client.SendAsync(request);
@@ -60,37 +105,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var content = await response.Content.ReadAsStringAsync();
-            Assert.Equal("Method: OnPostAsync", content);
-        }
-
-        [Fact]
-        public async Task Page_CustomAsyncHandlers()
-        {
-            // Arrange
-            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost/CustomAsyncHandlerNames");
-
-            // Act
-            var response = await Client.SendAsync(request);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var content = await response.Content.ReadAsStringAsync();
-            Assert.Equal(content, "Method: OnGetCustomerAsync");
-        }
-
-        [Fact]
-        public async Task Page_TypeImplementsIActionResult()
-        {
-            // Arrange
-            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost/TypeImplementsIActionResult");
-
-            // Act
-            var response = await Client.SendAsync(request);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var content = await response.Content.ReadAsStringAsync();
-            Assert.Equal(content, "CustomActionResult");
+            Assert.Equal("CustomActionResult", content);
         }
 
         [Fact]
@@ -186,19 +201,6 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
 
             var content = await response.Content.ReadAsStringAsync();
             Assert.Equal("Hello, handler!", content.Trim());
-        }
-
-        [Fact]
-        public async Task HelloWorlWithHander_MissingHandlerNotFound()
-        {
-            // Arrange
-            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost/HelloWorldWithHandler");
-
-            // Act
-            var response = await Client.SendAsync(request);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [Fact]

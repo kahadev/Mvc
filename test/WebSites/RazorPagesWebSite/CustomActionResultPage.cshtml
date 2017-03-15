@@ -1,2 +1,8 @@
-@page
+﻿@page "{formaction?}"
 @model RazorPagesWebSite.CustomActionResultModel
+
+Method: @Model.MethodName
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+}
