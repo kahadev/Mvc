@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.Core.Internal;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Mvc.Internal
@@ -18,7 +20,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
     public class ControllerActionInvoker : ResourceInvoker, IActionInvoker
     {
         private readonly IControllerFactory _controllerFactory;
-        private readonly IControllerArgumentBinder _controllerArgumentBinder;
+        private readonly ParameterBinder _parameterBinder;
 
         private readonly ControllerContext _controllerContext;
         private readonly ObjectMethodExecutor _executor;
@@ -36,7 +38,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public ControllerActionInvoker(
             IControllerFactory controllerFactory,
-            IControllerArgumentBinder controllerArgumentBinder,
+            ParameterBinder parameterBinder,
             ILogger logger,
             DiagnosticSource diagnosticSource,
             ControllerContext controllerContext,
@@ -50,9 +52,9 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 throw new ArgumentNullException(nameof(controllerFactory));
             }
 
-            if (controllerArgumentBinder == null)
+            if (parameterBinder == null)
             {
-                throw new ArgumentNullException(nameof(controllerArgumentBinder));
+                throw new ArgumentNullException(nameof(parameterBinder));
             }
 
             if (objectMethodExecutor == null)
@@ -61,7 +63,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
 
             _controllerFactory = controllerFactory;
-            _controllerArgumentBinder = controllerArgumentBinder;
+            _parameterBinder = parameterBinder;
             _controllerContext = controllerContext;
             _executor = objectMethodExecutor;
         }
@@ -291,11 +293,19 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                         _controller = _controllerFactory.CreateController(controllerContext);
 
                         _arguments = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-                        var task = _controllerArgumentBinder.BindArgumentsAsync(controllerContext, _controller, _arguments);
-                        if (task.Status != TaskStatus.RanToCompletion)
+
+                        // Perf: Avoid allocating async state machines where possible. We only need the state
+                        // machine if you need to bind properties or parameters.
+                        var actionDescriptor = _controllerContext.ActionDescriptor;
+                        if (actionDescriptor.BoundProperties.Count != 0 ||
+                            actionDescriptor.Parameters.Count != 0)
                         {
-                            next = State.ActionNext;
-                            return task;
+                            var task = BindArgumentsAsync();
+                            if (task.Status != TaskStatus.RanToCompletion)
+                            {
+                                next = State.ActionNext;
+                                return task;
+                            }
                         }
 
                         goto case State.ActionNext;
@@ -970,6 +980,68 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 throw context.Exception;
             }
+        }
+
+        private async Task BindArgumentsAsync()
+        {
+            var valueProvider = await CompositeValueProvider.CreateAsync(_controllerContext);
+
+            var parameters = _controllerContext.ActionDescriptor.Parameters;
+            for (var i = 0; i < parameters.Count; i++)
+            {
+                var parameter = parameters[i];
+
+                var result = await _parameterBinder.BindModelAsync(_controllerContext, valueProvider, parameter);
+                if (result.IsModelSet)
+                {
+                    _arguments[parameter.Name] = result.Model;
+                }
+            }
+
+            var properties = _controllerContext.ActionDescriptor.BoundProperties;
+            if (properties.Count == 0)
+            {
+                // Perf: Early exit to avoid PropertyHelper lookup in the (common) case where we have no
+                // bound properties.
+                return;
+            }
+
+            var propertyHelpers = PropertyHelper.GetProperties(_controller);
+            for (var i = 0; i < properties.Count; i++)
+            {
+                var property = properties[i];
+
+                var result = await _parameterBinder.BindModelAsync(_controllerContext, valueProvider, property);
+                if (result.IsModelSet)
+                {
+                    var propertyHelper = FindPropertyHelper(propertyHelpers, property);
+                    if (propertyHelper != null)
+                    {
+                        var metadata = _parameterBinder.ModelMetadataProvider.GetMetadataForType(property.ParameterType);
+                        PropertyValueSetter.SetValue(
+                            metadata,
+                            propertyHelper.Property,
+                            propertyHelper.ValueSetter,
+                            propertyHelper.ValueGetter,
+                            _controller,
+                            result.Model);
+                    }
+                }
+            }
+        }
+
+        private static PropertyHelper FindPropertyHelper(PropertyHelper[] propertyHelpers, ParameterDescriptor property)
+        {
+            for (var i = 0; i < propertyHelpers.Length; i++)
+            {
+                var propertyHelper = propertyHelpers[i];
+                if (string.Equals(propertyHelper.Name, property.Name, StringComparison.Ordinal))
+                {
+                    return propertyHelper;
+                }
+            }
+
+            return null;
         }
 
         private enum Scope
