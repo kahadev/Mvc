@@ -1,0 +1,12 @@
+﻿@page "{food:int}"
+
+@functions{
+    public string Food { get; set; }
+
+    public void OnGet(string food = "default")
+    {
+        Food = food;
+    }
+}
+
+Food: @Food
